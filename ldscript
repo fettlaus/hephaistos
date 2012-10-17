@@ -1,0 +1,40 @@
+OUTPUT_FORMAT("elf32-littlearm")
+TARGET("elf32-littlearm")
+ENTRY(reset_handler)
+
+MEMORY
+{
+  FLASH	(RX)	: ORIGIN = 0x00000000, LENGTH = 128K
+  SRAM	(RWX)	: ORIGIN = 0x20000000, LENGTH = 16K
+}
+
+SECTIONS
+{
+  . = ORIGIN(FLASH);
+
+  .text : {
+    _vectors_start = .;
+    *(.vectors)
+    _vectors_end = 0x150;
+    . = _vectors_end; /* Insert executable code strictly after vectors */
+    vectors.o(.text)
+    *(.text)
+    *(.rodata)
+    _rodata_end = .;
+  } >FLASH
+
+  .data : {
+    _data_start = .;
+    *(.data)
+    _data_end = .;
+  } >SRAM AT >FLASH /* .data section has VMA at SRAM and LMA at FLASH */
+
+  .bss : {
+    _bss_start = .;
+    *(.bss)
+    _bss_end = .;
+  } >SRAM
+
+ /* Initialize main stack pointer to top of the SRAM */
+  _msp = ORIGIN(SRAM) + LENGTH(SRAM);
+}
