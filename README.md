@@ -1,4 +1,4 @@
-hephaistos
+HephaistOS
 ==========
 
 HephaistOS
