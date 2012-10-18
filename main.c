@@ -1,81 +1,257 @@
 /*
- * Olimex STM32-H152 has two LEDs connected to GPIO port E
- * and this program demostrates how to blink green LED on it.
- */
+    ChibiOS/RT - Copyright (C) 2006,2007,2008,2009,2010,
+                 2011,2012 Giovanni Di Sirio.
+
+    This file is part of ChibiOS/RT.
+
+    ChibiOS/RT is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    ChibiOS/RT is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+                                      ---
+
+    A special exception to the GPL can be applied should you wish to distribute
+    a combined work that includes ChibiOS/RT, without being obliged to provide
+    the source code for any proprietary components. See the file exception.txt
+    for full details of how and when the exception can be applied.
+*/
+
+#include "ch.h"
+#include "hal.h"
+#include "test.h"
+
+static void pwmpcb(PWMDriver *pwmp);
+static void adccb(ADCDriver *adcp, adcsample_t *buffer, size_t n);
+static void spicb(SPIDriver *spip);
+
+/* Total number of channels to be sampled by a single ADC operation.*/
+#define ADC_GRP1_NUM_CHANNELS   2
+
+/* Depth of the conversion buffer, channels are sampled four times each.*/
+#define ADC_GRP1_BUF_DEPTH      4
 
 /*
- * Register definitions
+ * ADC samples buffer.
  */
-#define RCC_BASE 0x40023800		/* Reset and Clock Control registers */
-#define RCC_AHBENR (RCC_BASE + 0x1C)	/* AHB peripheral clock enable */
-#define RCC_ICSCR (RCC_BASE + 0x04)	/* Internal Clock Sources Calibration */
+static adcsample_t samples[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
 
-#define SYST_BASE 0xE000E010		/* SysTick registers  */
-#define SYST_CSR (SYST_BASE + 0x00)	/* Control and Status */
-#define SYST_RVR (SYST_BASE + 0x04)	/* Reload Value */
-#define SYST_CVR (SYST_BASE + 0x08)	/* Current Value */
+/*
+ * ADC conversion group.
+ * Mode:        Linear buffer, 4 samples of 2 channels, SW triggered.
+ * Channels:    IN10   (48 cycles sample time)
+ *              Sensor (192 cycles sample time)
+ */
+static const ADCConversionGroup adcgrpcfg = {
+  FALSE,
+  ADC_GRP1_NUM_CHANNELS,
+  adccb,
+  NULL,
+  /* HW dependent part.*/
+  0,                        /* CR1 */
+  ADC_CR2_SWSTART,          /* CR2 */
+  0,
+  ADC_SMPR2_SMP_AN10(ADC_SAMPLE_48) | ADC_SMPR2_SMP_SENSOR(ADC_SAMPLE_192),
+  0,
+  ADC_SQR1_NUM_CH(ADC_GRP1_NUM_CHANNELS),
+  0,
+  0,
+  0,
+  ADC_SQR5_SQ2_N(ADC_CHANNEL_IN10) | ADC_SQR5_SQ1_N(ADC_CHANNEL_SENSOR)
+};
 
-#define GPIOE_BASE 0x40021000		/* General Purpose I/O registers */
-#define GPIOE_MODER (GPIOE_BASE + 0x00)	/* Port Mode */
-#define GPIOE_ODR (GPIOE_BASE + 0x14)	/* Output Data */
+/*
+ * PWM configuration structure.
+ * Cyclic callback enabled, channels 1 and 2 enabled without callbacks,
+ * the active state is a logic one.
+ */
+static PWMConfig pwmcfg = {
+  10000,                                    /* 10kHz PWM clock frequency.   */
+  10000,                                    /* PWM period 1S (in ticks).    */
+  pwmpcb,
+  {
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL},
+    {PWM_OUTPUT_ACTIVE_HIGH, NULL},
+    {PWM_OUTPUT_DISABLED, NULL},
+    {PWM_OUTPUT_DISABLED, NULL}
+  },
+  /* HW dependent part.*/
+  0
+};
 
-/* SysTick IRQ handler called every 1ms */
-void systick_handler(void) __attribute__ ((interrupt ("IRQ")));
+/*
+ * SPI configuration structure.
+ * Maximum speed (12MHz), CPHA=0, CPOL=0, 16bits frames, MSb transmitted first.
+ * The slave select line is the pin GPIOA_SPI1NSS on the port GPIOA.
+ */
+static const SPIConfig spicfg = {
+  spicb,
+  /* HW dependent part.*/
+  GPIOB,
+  12,
+  SPI_CR1_DFF
+};
 
-/* Millisecond resolution delay function */
-void delay(int);
+/*
+ * PWM cyclic callback.
+ * A new ADC conversion is started.
+ */
+static void pwmpcb(PWMDriver *pwmp) {
 
-/* Incremented from SysTick IRQ handler every 1ms */
-volatile unsigned int counter = 0;
+  (void)pwmp;
 
-
-int main(void)
-{
-	int *rcc_ahbenr  = ((int *)RCC_AHBENR);
-	int *rcc_icscr   = ((int *)RCC_ICSCR);
-	int *syst_rvr    = ((int *)SYST_RVR);
-	int *syst_cvr    = ((int *)SYST_CVR);
-	int *syst_csr    = ((int *)SYST_CSR);
-	int *gpioe_odr   = ((int *)GPIOE_ODR);
-	int *gpioe_moder = ((int *)GPIOE_MODER);
-
-	/* Study ST's Reference Manual RM0038 for register definitions */
-
-	/* Configure core to use 4MHz MSI clock */
-	*rcc_icscr = (*rcc_icscr | (0x6<<13));
-
-	/* Set up SysTick to interrupt every 1ms */
-	*syst_rvr = 4000;
-	*syst_cvr = 0xFFFFFFFF;
-	*syst_csr = 0x7;
-
-	/* Enable GPIOE clock and configure output */
-	*rcc_ahbenr = (*rcc_ahbenr | 1<<4);
-        *gpioe_odr = (*gpioe_odr | 1<<11); /* LED off by default */
-        *gpioe_moder = (*gpioe_moder | 1<<22);
-
-	while(1)
-	{
-            delay(500);
-            /* LED on */
-            *gpioe_odr = (*gpioe_odr & ~(1<<11));
-	    delay(500);
-            /* LED off */
-            *gpioe_odr = (*gpioe_odr | 1<<11);
-	}
-
-        return 0;
+  /* Starts an asynchronous ADC conversion operation, the conversion
+     will be executed in parallel to the current PWM cycle and will
+     terminate before the next PWM cycle.*/
+  chSysLockFromIsr();
+  adcStartConversionI(&ADCD1, &adcgrpcfg, samples, ADC_GRP1_BUF_DEPTH);
+  chSysUnlockFromIsr();
 }
 
-void systick_handler(void)
-{
-        counter++;
+/*
+ * ADC end conversion callback.
+ * The PWM channels are reprogrammed using the latest ADC samples.
+ * The latest samples are transmitted into a single SPI transaction.
+ */
+void adccb(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
+
+  (void) buffer; (void) n;
+  /* Note, only in the ADC_COMPLETE state because the ADC driver fires an
+     intermediate callback when the buffer is half full.*/
+  if (adcp->state == ADC_COMPLETE) {
+    adcsample_t avg_ch1, avg_ch2;
+
+    /* Calculates the average values from the ADC samples.*/
+    avg_ch1 = (samples[0] + samples[2] + samples[4] + samples[6]) / 4;
+    avg_ch2 = (samples[1] + samples[3] + samples[5] + samples[7]) / 4;
+
+    chSysLockFromIsr();
+
+    /* Changes the channels pulse width, the change will be effective
+       starting from the next cycle.*/
+    pwmEnableChannelI(&PWMD4, 0, PWM_FRACTION_TO_WIDTH(&PWMD4, 4096, avg_ch1));
+    pwmEnableChannelI(&PWMD4, 1, PWM_FRACTION_TO_WIDTH(&PWMD4, 4096, avg_ch2));
+
+    /* SPI slave selection and transmission start.*/
+    spiSelectI(&SPID2);
+    spiStartSendI(&SPID2, ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH, samples);
+
+    chSysUnlockFromIsr();
+  }
 }
 
-void delay(int ms)
-{
-	int stop;
-	stop = counter + ms;
+/*
+ * SPI end transfer callback.
+ */
+static void spicb(SPIDriver *spip) {
 
-	while(counter != stop);
+  /* On transfer end just releases the slave select line.*/
+  chSysLockFromIsr();
+  spiUnselectI(spip);
+  chSysUnlockFromIsr();
+}
+
+/*
+ * This is a periodic thread that does absolutely nothing except increasing
+ * a seconds counter.
+ */
+static WORKING_AREA(waThread1, 128);
+static msg_t Thread1(void *arg) {
+  static uint32_t seconds_counter;
+
+  (void)arg;
+  chRegSetThreadName("counter");
+  while (TRUE) {
+    chThdSleepMilliseconds(1000);
+    seconds_counter++;
+  }
+}
+
+/*
+ * Application entry point.
+ */
+int main(void) {
+
+  /*
+   * System initializations.
+   * - HAL initialization, this also initializes the configured device drivers
+   *   and performs the board-specific initializations.
+   * - Kernel initialization, the main() function becomes a thread and the
+   *   RTOS is active.
+   */
+  halInit();
+  chSysInit();
+
+  /*
+   * Activates the serial driver 1 using the driver default configuration.
+   * PA9 and PA10 are routed to USART1.
+   */
+  sdStart(&SD1, NULL);
+  palSetPadMode(GPIOA, 9, PAL_MODE_ALTERNATE(7));
+  palSetPadMode(GPIOA, 10, PAL_MODE_ALTERNATE(7));
+
+  /*
+   * If the user button is pressed after the reset then the test suite is
+   * executed immediately before activating the various device drivers in
+   * order to not alter the benchmark scores.
+   */
+  if (palReadPad(GPIOA, GPIOA_BUTTON))
+    TestThread(&SD1);
+
+  /*
+   * Initializes the SPI driver 2. The SPI2 signals are routed as follow:
+   * PB12 - NSS.
+   * PB13 - SCK.
+   * PB14 - MISO.
+   * PB15 - MOSI.
+   */
+  spiStart(&SPID2, &spicfg);
+  palSetPad(GPIOB, 12);
+  palSetPadMode(GPIOB, 12, PAL_MODE_OUTPUT_PUSHPULL |
+                           PAL_STM32_OSPEED_HIGHEST);           /* NSS.     */
+  palSetPadMode(GPIOB, 13, PAL_MODE_ALTERNATE(5) |
+                           PAL_STM32_OSPEED_HIGHEST);           /* SCK.     */
+  palSetPadMode(GPIOB, 14, PAL_MODE_ALTERNATE(5));              /* MISO.    */
+  palSetPadMode(GPIOB, 15, PAL_MODE_ALTERNATE(5) |
+                           PAL_STM32_OSPEED_HIGHEST);           /* MOSI.    */
+
+  /*
+   * Initializes the ADC driver 1 and enable the thermal sensor.
+   * The pin PC0 on the port GPIOC is programmed as analog input.
+   */
+  adcStart(&ADCD1, NULL);
+  adcSTM32EnableTSVREFE();
+  palSetPadMode(GPIOC, 0, PAL_MODE_INPUT_ANALOG);
+
+  /*
+   * Initializes the PWM driver 4, routes the TIM4 outputs to the board LEDs.
+   */
+  pwmStart(&PWMD4, &pwmcfg);
+  palSetPadMode(GPIOB, GPIOB_LED4, PAL_MODE_ALTERNATE(2));
+  palSetPadMode(GPIOB, GPIOB_LED3, PAL_MODE_ALTERNATE(2));
+
+  /*
+   * Creates the example thread.
+   */
+  chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
+
+  /*
+   * Normal main() thread activity, in this demo it does nothing except
+   * sleeping in a loop and check the button state, when the button is
+   * pressed the test procedure is launched with output on the serial
+   * driver 1.
+   */
+  while (TRUE) {
+    if (palReadPad(GPIOA, GPIOA_BUTTON))
+      TestThread(&SD1);
+    chThdSleepMilliseconds(500);
+  }
 }
