@@ -141,8 +141,8 @@ void adccb(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
     pwmEnableChannelI(&PWMD4, 1, PWM_FRACTION_TO_WIDTH(&PWMD4, 4096, avg_ch2));
 
     /* SPI slave selection and transmission start.*/
-    spiSelectI(&SPID2);
-    spiStartSendI(&SPID2, ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH, samples);
+    spiSelectI(&SPID1);
+    spiStartSendI(&SPID1, ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH, samples);
 
     chSysUnlockFromIsr();
   }
@@ -173,6 +173,7 @@ static msg_t Thread1(void *arg) {
     chThdSleepMilliseconds(1000);
     seconds_counter++;
   }
+  return 0;
 }
 
 /*
@@ -213,7 +214,7 @@ int main(void) {
    * PB14 - MISO.
    * PB15 - MOSI.
    */
-  spiStart(&SPID2, &spicfg);
+  spiStart(&SPID1, &spicfg);
   palSetPad(GPIOB, 12);
   palSetPadMode(GPIOB, 12, PAL_MODE_OUTPUT_PUSHPULL |
                            PAL_STM32_OSPEED_HIGHEST);           /* NSS.     */
