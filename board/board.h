@@ -35,8 +35,8 @@
 /*
  * Board identifier.
  */
-#define BOARD_ST_STM32L_DISCOVERY
-#define BOARD_NAME              "ST STM32L-Discovery"
+#define BOARD_OLIMEX_STM32_H152
+#define BOARD_NAME              "Olimex STM32-H152"
 
 /*
  * Board frequencies.
@@ -55,8 +55,8 @@
  */
 #define GPIOA_BUTTON            0
 
-#define GPIOB_LED4              6
-#define GPIOB_LED3              7
+#define GPIOE_LED1              10
+#define GPIOE_LED2              11
 
 /*
  * I/O ports initial setup, this configuration is established soon after reset
@@ -129,8 +129,6 @@
  * All input with pull-up except:
  * PB3  - JTDO          (alternate 0).
  * PB4  - JNTRST        (alternate 0).
- * PB6  - GPIOB_LED4    (output push-pull).
- * PB7  - GPIOB_LED3    (output push-pull).
  */
 #define VAL_GPIOB_MODER             (PIN_MODE_INPUT(0) |                    \
                                      PIN_MODE_INPUT(1) |                    \
@@ -138,8 +136,8 @@
                                      PIN_MODE_ALTERNATE(3) |                \
                                      PIN_MODE_ALTERNATE(4) |                \
                                      PIN_MODE_INPUT(5) |                    \
-                                     PIN_MODE_OUTPUT(GPIOB_LED4) |          \
-                                     PIN_MODE_OUTPUT(GPIOB_LED3) |          \
+                                     PIN_MODE_INPUT(6) |          \
+                                     PIN_MODE_INPUT(7) |          \
                                      PIN_MODE_INPUT(8) |                    \
                                      PIN_MODE_INPUT(9) |                    \
                                      PIN_MODE_INPUT(10) |                   \
@@ -156,8 +154,8 @@
                                      PIN_PUDR_FLOATING(3) |                 \
                                      PIN_PUDR_FLOATING(4) |                 \
                                      PIN_PUDR_PULLUP(5) |                   \
-                                     PIN_PUDR_FLOATING(GPIOB_LED4) |        \
-                                     PIN_PUDR_FLOATING(GPIOB_LED3) |        \
+                                     PIN_PUDR_PULLUP(6) |        \
+                                     PIN_PUDR_PULLUP(7) |        \
                                      PIN_PUDR_PULLUP(8) |                   \
                                      PIN_PUDR_PULLUP(9) |                   \
                                      PIN_PUDR_PULLUP(10) |                  \
@@ -258,7 +256,9 @@
 
 /*
  * Port E setup.
- * All input with pull-up.
+ * All input with pull-up except:
+ * PB6  - GPIOB_LED4    (output push-pull).
+ * PB7  - GPIOB_LED3    (output push-pull).
  */
 #define VAL_GPIOE_MODER             (PIN_MODE_INPUT(0) |                    \
                                      PIN_MODE_INPUT(1) |                    \
@@ -270,8 +270,8 @@
                                      PIN_MODE_INPUT(7) |                    \
                                      PIN_MODE_INPUT(8) |                    \
                                      PIN_MODE_INPUT(9) |                    \
-                                     PIN_MODE_INPUT(10) |                   \
-                                     PIN_MODE_INPUT(11) |                   \
+                                     PIN_MODE_OUTPUT(GPIOE_LED1) |                   \
+                                     PIN_MODE_OUTPUT(GPIOE_LED2) |                   \
                                      PIN_MODE_INPUT(12) |                   \
                                      PIN_MODE_INPUT(13) |                   \
                                      PIN_MODE_INPUT(14) |                   \
@@ -288,8 +288,8 @@
                                      PIN_PUDR_PULLUP(7) |                   \
                                      PIN_PUDR_PULLUP(8) |                   \
                                      PIN_PUDR_PULLUP(9) |                   \
-                                     PIN_PUDR_PULLUP(10) |                  \
-                                     PIN_PUDR_PULLUP(11) |                  \
+                                     PIN_PUDR_FLOATING(GPIOE_LED1) |                  \
+                                     PIN_PUDR_FLOATING(GPIOE_LED2) |                  \
                                      PIN_PUDR_PULLUP(12) |                  \
                                      PIN_PUDR_PULLUP(13) |                  \
                                      PIN_PUDR_PULLUP(14) |                  \

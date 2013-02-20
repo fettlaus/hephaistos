@@ -28,6 +28,8 @@
 #include "ch.h"
 #include "hal.h"
 #include "test.h"
+#include "hardware.h"
+#include "MRF24J40.h"
 
 static void pwmpcb(PWMDriver *pwmp);
 static void adccb(ADCDriver *adcp, adcsample_t *buffer, size_t n);
@@ -179,7 +181,7 @@ static msg_t Thread1(void *arg) {
 /*
  * Application entry point.
  */
-int main(void) {
+int main2(void) {
 
   /*
    * System initializations.
@@ -255,4 +257,78 @@ int main(void) {
       TestThread(&SD1);
     chThdSleepMilliseconds(500);
   }
+}
+UINT8 txPayload[TX_PAYLOAD_SIZE];       // TX payload buffer
+
+// inits Tx structure for simple point-to-point connection between a single pair of devices who both use the same address
+// after calling this, you can send packets by just filling out:
+// txPayload[] with payload and
+// Tx.payloadLength,
+// then calling RadioTXPacket()
+void RadioInitP2P(void)
+{
+    Tx.frameType = PACKET_TYPE_DATA;
+    Tx.securityEnabled = 0;
+    Tx.framePending = 0;
+    Tx.ackRequest = 1;
+    Tx.panIDcomp = 1;
+    Tx.dstAddrMode = SHORT_ADDR_FIELD;
+    Tx.frameVersion = 0;
+    Tx.srcAddrMode = NO_ADDR_FIELD;
+    Tx.dstPANID = RadioStatus.MyPANID;
+    Tx.dstAddr = RadioStatus.MyShortAddress;
+    Tx.payload = txPayload;
+}
+
+int main(void)
+{
+    static UINT8 lastFrameNumber;
+
+    BoardInit();            // setup hardware
+    RadioInit();            // cold start MRF24J40 radio
+    RadioInitP2P();         // setup for simple peer-to-peer communication
+
+    printf("\nDemo for MRF24J40 running.\n");
+    printf("Hit A, B, or C on to send a message.\n");
+
+    while(1)                // main program loop
+    {
+        // process any received packets
+
+        while(RadioRXPacket())
+        {
+            if (Rx.frameNumber != lastFrameNumber)              // skip duplicate packets (Usually because far-end missed my ACK)
+            {
+                lastFrameNumber = Rx.frameNumber;
+
+                Rx.payload[Rx.payloadLength] = 0;               // put terminating null on received payload
+                printf("%s", Rx.payload);                       // print payload as an ASCII string
+            }
+            RadioDiscardPacket();
+        }
+
+        // transmit a message if one of the keys was pressed
+
+        switch (ReadUART())             // read a byte from the terminal (0=none available)
+        {
+        case ('A'):
+        case ('a'):
+            Tx.payloadLength = sprintf(Tx.payload, "This is message A for Alpha.\n" );
+            RadioTXPacket();
+
+            break;
+
+        case ('B'):
+        case ('b'):
+            Tx.payloadLength = sprintf(Tx.payload, "Message B for Bravo.\n");
+            RadioTXPacket();
+            break;
+
+        case ('C'):
+        case ('c'):
+            Tx.payloadLength = sprintf(Tx.payload, "C is for Charlie.\n");
+            RadioTXPacket();
+            break;
+        }
+    }
 }
