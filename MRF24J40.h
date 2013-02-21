@@ -5,7 +5,8 @@
 #if !defined(_MRF24J40_H_)
 #define _MRF24J40_H_
 
-#include <plib.h>										// generic type defs
+#include "ch.h"										// generic type defs
+#include "hal.h"
 
 // radio config 
 
@@ -37,47 +38,47 @@
 
 typedef union					// interrupt mask for radio
 {
-	UINT8 Val;
+	uint8_t Val;
 	struct
 	{
-		UINT8 TXIF 			:1; // transmission finished interrupt (TX no longer busy)
-		UINT8 				:2;
-		UINT8 RXIF 			:1; // received a packet interrupt
-		UINT8 SECIF 		:1;	// received a secured packet interrupt
-		UINT8 				:4;
+		uint8_t TXIF 			:1; // transmission finished interrupt (TX no longer busy)
+		uint8_t 				:2;
+		uint8_t RXIF 			:1; // received a packet interrupt
+		uint8_t SECIF 		:1;	// received a secured packet interrupt
+		uint8_t 				:4;
 	} bits;
 } MRF24J40_IFREG;
 
 typedef struct									// radio state
 {
-	UINT8 	TX_BUSY			:1;					// transmitter is busy.  Set when TX triggered, reset by TX ISR.
-	UINT8 	TX_PENDING_ACK  :1; 				// we are currently waiting for an ack (don't know yet if we'll get one)
-	UINT8 	TX_FAIL         :1;					// last packet sent failed
-	UINT8 	TX_RETRIES		:2;					// number of tx retries of last sent packet
-	UINT8	TX_CCAFAIL		:1;					// tells if last tx failed due to channel too busy
-	UINT8 	SLEEPING		:1;					// tells if radio is asleep now
-	UINT8 	volatile RXWriteBuffer;				// buffer number to write to in ISR (modified by ISR)
-	UINT8 	RXReadBuffer;						// buffer number to read from
-	UINT8	volatile RXPacketCount;				// number of buffers waiting to be read (modified by ISR)
-	UINT8 	IEEESeqNum;							// tx packet sequence number (initial value not important)
-	UINT8 	Channel;							// current radio channel
-	UINT16 	MyShortAddress;						// short (2 byte) address
-	UINT64  MyLongAddress;						// long (8 byte, MAC) address
-	UINT16 	MyPANID;							// PANID (2 bytes)
-	UINT32	ResetCount;							// count of times hardware has been reset
-	UINT32	LastTXTriggerTick;					// tick at which we triggered the last TX packet to go out
+	uint8_t 	TX_BUSY			:1;					// transmitter is busy.  Set when TX triggered, reset by TX ISR.
+	uint8_t 	TX_PENDING_ACK  :1; 				// we are currently waiting for an ack (don't know yet if we'll get one)
+	uint8_t 	TX_FAIL         :1;					// last packet sent failed
+	uint8_t 	TX_RETRIES		:2;					// number of tx retries of last sent packet
+	uint8_t	TX_CCAFAIL		:1;					// tells if last tx failed due to channel too busy
+	uint8_t 	SLEEPING		:1;					// tells if radio is asleep now
+	uint8_t 	volatile RXWriteBuffer;				// buffer number to write to in ISR (modified by ISR)
+	uint8_t 	RXReadBuffer;						// buffer number to read from
+	uint8_t	volatile RXPacketCount;				// number of buffers waiting to be read (modified by ISR)
+	uint8_t 	IEEESeqNum;							// tx packet sequence number (initial value not important)
+	uint8_t 	Channel;							// current radio channel
+	uint16_t 	MyShortAddress;						// short (2 byte) address
+	uint64_t  MyLongAddress;						// long (8 byte, MAC) address
+	uint16_t 	MyPANID;							// PANID (2 bytes)
+	uint32_t	ResetCount;							// count of times hardware has been reset
+	uint32_t	LastTXTriggerTick;					// tick at which we triggered the last TX packet to go out
 	// error statistics
-	UINT16	RXSecurityEnabled;					// number of packets RX's with security bit set (had to discard)
-	UINT16	RadioExtraDiscard;					// number of times we attempted to discard a packet that wasn't there (error)
-	UINT16	RXPacketTooBig;						// number of times we truncated a RX'ed packet that didn't fit in buffer
-	UINT16	RXBufferOverruns;					// number of times the RX buffer overran (because we didn't empty it fast enough)
+	uint16_t	RXSecurityEnabled;					// number of packets RX's with security bit set (had to discard)
+	uint16_t	RadioExtraDiscard;					// number of times we attempted to discard a packet that wasn't there (error)
+	uint16_t	RXPacketTooBig;						// number of times we truncated a RX'ed packet that didn't fit in buffer
+	uint16_t	RXBufferOverruns;					// number of times the RX buffer overran (because we didn't empty it fast enough)
 } MRF24J40_STATUS;
 
 typedef struct							
 {
 	// note that the 1st 4 bytes of this structure are identical to the 1st 4 bytes of the RX FIFO contents
 
-	UINT8		frameLength;			// bytes (m+n, per 802.15.4)  Does not count itself, 2 bytes of FCS, 1 of LQI, or 1 of RSSI.
+    uint8_t		frameLength;			// bytes (m+n, per 802.15.4)  Does not count itself, 2 bytes of FCS, 1 of LQI, or 1 of RSSI.
 	unsigned	frameType		:3;		// per Table 79
 	unsigned	securityEnabled	:1;		// per Figure 42
 	unsigned	framePending 	:1;		// per Figure 42
@@ -87,34 +88,34 @@ typedef struct
 	unsigned	dstAddrMode		:2;		// per Table 80
 	unsigned	frameVersion	:2;		// per Figure 42
 	unsigned	srcAddrMode		:2;		// per Table 80
-	UINT8		frameNumber;			// packet sequence number
+	uint8_t		frameNumber;			// packet sequence number
 
 	// from here down is NOT (necessarily) identical to FIFO contents
 
-	UINT16		dstPANID;
-	UINT64		dstAddr;				// only 1st 2 bytes used if short addr
-	UINT16		srcPANID;
-	UINT64		srcAddr;				// only 1st 2 bytes used if short addr
+	uint16_t		dstPANID;
+	uint64_t		dstAddr;				// only 1st 2 bytes used if short addr
+	uint16_t		srcPANID;
+	uint64_t		srcAddr;				// only 1st 2 bytes used if short addr
 	
-	UINT8		payloadLength;			// length of payload field
-	UINT8 *		payload;				// points at payload start
-	UINT8       lqi;					// LQI value for the received packet
-	UINT8       rssi;					// RSSI value for the received packet
+	uint8_t		payloadLength;			// length of payload field
+	uint8_t *		payload;				// points at payload start
+	uint8_t       lqi;					// LQI value for the received packet
+	uint8_t       rssi;					// RSSI value for the received packet
 } PACKET;
 
 
 // function prototypes
 
-BOOL   RadioInit(void);
-void   RadioSetAddress(UINT16 shortAddress, UINT64 longAddress, UINT16 panID);
-BOOL   RadioSetChannel(UINT8 channel);
-void   RadioSetSleep(UINT8 powerState);
-UINT8  RadioEnergyDetect(void);
+char  RadioInit(void);
+void   RadioSetAddress(uint16_t shortAddress, uint64_t longAddress, uint16_t panID);
+char   RadioSetChannel(uint8_t channel);
+void   RadioSetSleep(uint8_t powerState);
+uint8_t  RadioEnergyDetect(void);
 void   RadioTXRaw(void);
 void   RadioTXPacket(void);
-UINT8  RadioRXPacket(void);
-UINT8  RadioTXResult(void);
-UINT8  RadioWaitTXResult(void);
+uint8_t  RadioRXPacket(void);
+uint8_t  RadioTXResult(void);
+uint8_t  RadioWaitTXResult(void);
 void   RadioDiscardPacket(void);
 
 // public variables
@@ -122,7 +123,7 @@ void   RadioDiscardPacket(void);
 extern MRF24J40_STATUS volatile RadioStatus;						// radio state
 extern PACKET Tx;													// description of packet to be transmitted
 extern PACKET Rx;													// description of received packet (after parsing)
-extern UINT8 volatile RXBuffer[PACKET_BUFFERS][RX_BUFFER_SIZE];		// rx packet buffer
+extern uint8_t volatile RXBuffer[PACKET_BUFFERS][RX_BUFFER_SIZE];		// rx packet buffer
 
 // Symbols
 

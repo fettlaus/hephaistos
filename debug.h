@@ -11,7 +11,7 @@
 // the below are for use with SPEEDO
 
 #define SET_DEBUG_STATE(x)  (SPEEDO = (x))							// set to CPU_BUSY or CPU_IDLE
-#define PUSH_DEBUG_STATE()	UINT8 pushed_debug_state = SPEEDO
+#define PUSH_DEBUG_STATE()	uint8_t pushed_debug_state = SPEEDO
 #define POP_DEBUG_STATE()	(SPEEDO = pushed_debug_state)
 
 // function prototypes

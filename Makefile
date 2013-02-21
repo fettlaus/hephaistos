@@ -60,6 +60,7 @@ PROJECT = ch
 # Imported source files and paths
 CHIBIOS = chibios
 include board/board.mk
+include hephaistos.mk
 include $(CHIBIOS)/os/hal/platforms/STM32L1xx/platform.mk
 include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32L1xx/port.mk
@@ -79,6 +80,8 @@ CSRC = $(PORTSRC) \
        $(BOARDSRC) \
        $(CHIBIOS)/os/various/evtimer.c \
        $(CHIBIOS)/os/various/syscalls.c \
+       $(CHIBIOS)/os/various/chprintf.c \
+       $(HEPHSRC) \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -110,7 +113,7 @@ ASMSRC = $(PORTASM)
 
 INCDIR = $(PORTINC) $(KERNINC) $(TESTINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) \
-         $(CHIBIOS)/os/various
+         $(CHIBIOS)/os/various $(HEPHINC)
 
 #
 # Project, sources and paths

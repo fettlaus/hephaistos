@@ -30,6 +30,7 @@
 #include "test.h"
 #include "hardware.h"
 #include "MRF24J40.h"
+#include "chprintf.h"
 
 static void pwmpcb(PWMDriver *pwmp);
 static void adccb(ADCDriver *adcp, adcsample_t *buffer, size_t n);
@@ -181,7 +182,7 @@ static msg_t Thread1(void *arg) {
 /*
  * Application entry point.
  */
-int main2(void) {
+int main(void) {
 
   /*
    * System initializations.
@@ -197,9 +198,7 @@ int main2(void) {
    * Activates the serial driver 1 using the driver default configuration.
    * PA9 and PA10 are routed to USART1.
    */
-  sdStart(&SD1, NULL);
-  palSetPadMode(GPIOA, 9, PAL_MODE_ALTERNATE(7));
-  palSetPadMode(GPIOA, 10, PAL_MODE_ALTERNATE(7));
+  sdStart(&SD3, NULL);
 
   /*
    * If the user button is pressed after the reset then the test suite is
@@ -207,7 +206,7 @@ int main2(void) {
    * order to not alter the benchmark scores.
    */
   if (palReadPad(GPIOA, GPIOA_BUTTON))
-    TestThread(&SD1);
+    TestThread(&SD3);
 
   /*
    * Initializes the SPI driver 2. The SPI2 signals are routed as follow:
@@ -218,13 +217,6 @@ int main2(void) {
    */
   spiStart(&SPID1, &spicfg);
   palSetPad(GPIOB, 12);
-  palSetPadMode(GPIOB, 12, PAL_MODE_OUTPUT_PUSHPULL |
-                           PAL_STM32_OSPEED_HIGHEST);           /* NSS.     */
-  palSetPadMode(GPIOB, 13, PAL_MODE_ALTERNATE(5) |
-                           PAL_STM32_OSPEED_HIGHEST);           /* SCK.     */
-  palSetPadMode(GPIOB, 14, PAL_MODE_ALTERNATE(5));              /* MISO.    */
-  palSetPadMode(GPIOB, 15, PAL_MODE_ALTERNATE(5) |
-                           PAL_STM32_OSPEED_HIGHEST);           /* MOSI.    */
 
   /*
    * Initializes the ADC driver 1 and enable the thermal sensor.
@@ -238,8 +230,8 @@ int main2(void) {
    * Initializes the PWM driver 4, routes the TIM4 outputs to the board LEDs.
    */
   pwmStart(&PWMD4, &pwmcfg);
-  palSetPadMode(GPIOB, GPIOB_LED4, PAL_MODE_ALTERNATE(2));
-  palSetPadMode(GPIOB, GPIOB_LED3, PAL_MODE_ALTERNATE(2));
+  palSetPadMode(GPIOE, GPIOE_LED2, PAL_MODE_ALTERNATE(2));
+  palSetPadMode(GPIOE, GPIOE_LED1, PAL_MODE_ALTERNATE(2));
 
   /*
    * Creates the example thread.
@@ -254,11 +246,12 @@ int main2(void) {
    */
   while (TRUE) {
     if (palReadPad(GPIOA, GPIOA_BUTTON))
-      TestThread(&SD1);
+      TestThread(&SD3);
     chThdSleepMilliseconds(500);
   }
 }
-UINT8 txPayload[TX_PAYLOAD_SIZE];       // TX payload buffer
+
+uint8_t txPayload[TX_PAYLOAD_SIZE];       // TX payload buffer
 
 // inits Tx structure for simple point-to-point connection between a single pair of devices who both use the same address
 // after calling this, you can send packets by just filling out:
@@ -280,16 +273,27 @@ void RadioInitP2P(void)
     Tx.payload = txPayload;
 }
 
-int main(void)
+int main2(void)
 {
-    static UINT8 lastFrameNumber;
+    static uint8_t lastFrameNumber;
+    BaseSequentialStream* ptr = (BaseSequentialStream *) &SD3;
 
-    BoardInit();            // setup hardware
+    halInit();
+    chSysInit();
     RadioInit();            // cold start MRF24J40 radio
     RadioInitP2P();         // setup for simple peer-to-peer communication
-
-    printf("\nDemo for MRF24J40 running.\n");
-    printf("Hit A, B, or C on to send a message.\n");
+    /*
+     * Maximum speed SPI configuration (16MHz, CPHA=0, CPOL=0, MSb first).
+     */
+    static const SPIConfig hs_spicfg = {
+      NULL,
+      GPIOB,
+      12,
+      0
+    };
+    spiStart(&SPID1, &hs_spicfg);
+    chprintf(ptr,"\nDemo for MRF24J40 running.\n");
+    chprintf(ptr,"Hit A, B, or C on to send a message.\n");
 
     while(1)                // main program loop
     {
@@ -302,13 +306,13 @@ int main(void)
                 lastFrameNumber = Rx.frameNumber;
 
                 Rx.payload[Rx.payloadLength] = 0;               // put terminating null on received payload
-                printf("%s", Rx.payload);                       // print payload as an ASCII string
+                chprintf(ptr,"%s", Rx.payload);                       // print payload as an ASCII string
             }
             RadioDiscardPacket();
         }
 
         // transmit a message if one of the keys was pressed
-
+/*
         switch (ReadUART())             // read a byte from the terminal (0=none available)
         {
         case ('A'):
@@ -330,5 +334,6 @@ int main(void)
             RadioTXPacket();
             break;
         }
+        */
     }
 }

@@ -2,16 +2,21 @@
 // New parts (c) 2010-2012 nerdfever.com
 // Originally based on Microchip MiWi DE v.3.1.3, 5/28/2010 (c) Microchip
 
-#include <string.h>			// memset()
-#include "debug.h"			// debug status
-#include "hardware.h"
 #include "MRF24J40.h"
-#include "radioAddress.h"	// addr for radio
 
+//#include "debug.h"          // debug status
+#include "hardware.h"
+#include "radioAddress.h"   // addr for radio
+
+#include <string.h>         // memset()
+
+
+
+static void extcb1(EXTDriver *extp, expchannel_t channel);
 // globals
 
 MRF24J40_STATUS volatile RadioStatus;						// radio state
-UINT8 volatile RXBuffer[PACKET_BUFFERS][RX_BUFFER_SIZE];	// rx packet buffers 
+uint8_t volatile RXBuffer[PACKET_BUFFERS][RX_BUFFER_SIZE];	// rx packet buffers
 PACKET Tx, Rx;												// structures describing transmitted and received packets
 
 // this combines memcpy with incrementing the source point.  It copies bytewise, allowing it to copy to/from unaligned addresses
@@ -32,10 +37,9 @@ unsigned char* readBytes(unsigned char* dstPtr, unsigned char* srcPtr, unsigned 
    And to receive, you send, wait for the byte to clock in, then read it.
 
 */
- 
 void spiPut(unsigned char v)				// write 1 byte to SPI
 {
-	unsigned char i;
+	//unsigned char i;
 
     #ifdef HARDWARE_SPI
 
@@ -46,12 +50,7 @@ void spiPut(unsigned char v)				// write 1 byte to SPI
 			if (SPI2STATbits.SPITBE) 		// if SPI tx is not busy
 				INTSetFlag(INT_SPI2TX);		// kick it
 		#else
-
-			while(!SPI2STATbits.SPITBE); 	// wait for TX buffer to empty (should already be)
-			SPI2BUF=v;						// write byte to TX buffer
-
-			while(!SPI2STATbits.SPIRBF);	// wait for RX buffer to fill
-			i=SPI2BUF;						// read RX buffer (don't know why we need to do this here, but we do)
+		    spiSend(&SPID1, 1,&v);          /* Atomic transfer operations.      */
 
 		#endif 
 	#else
@@ -87,11 +86,10 @@ unsigned char spiGet(void)							// read 1 byte from SPI
 					
 
 		#else
-			while(!SPI2STATbits.SPITBE); 			// wait for TX buffer to empty
-			SPI2BUF=0x00;							// write to TX buffer (force CLK to run for TX transfer)
+			uint8_t data;                /* Slave Select assertion.          */
+			spiReceive(&SPID1, 1,&data);          /* Atomic transfer operations.      */
 
-			while(!SPI2STATbits.SPIRBF);			// wait for RX buffer to fill
-			return(SPI2BUF);						// read RX buffer
+			return data;
 		#endif
 	#else
         unsigned char i;
@@ -112,84 +110,76 @@ unsigned char spiGet(void)							// read 1 byte from SPI
 }
 
 // reads byte from radio at long "address"
-UINT8 highRead(UINT16 address)
+uint8_t highRead(uint16_t address)
 {
-	UINT8 toReturn;
+	uint8_t toReturn;
 
 #ifndef SPI_INTERRUPTS
-	UINT8 tmpRFIE = RFIE;
-
-	RFIE = 0;
-	RADIO_CS = 0;
+	chSysDisable();
+	spiSelect(&SPID1);
 #endif
 	spiPut(((address>>3)&0x7F)|0x80);
 	spiPut(((address<<5)&0xE0));
 	toReturn = spiGet();
 #ifndef SPI_INTERRUPTS
-	RADIO_CS = 1;
-	RFIE = tmpRFIE;
+	spiUnselect(&SPID1);
+	chSysEnable();
 #endif
 
 	return toReturn;
 }
 
 // writes "value" to radio at long "address"
-void highWrite(UINT16 address, UINT8 value)
+void highWrite(uint16_t address, uint8_t value)
 {
 #ifndef SPI_INTERRUPTS
-	UINT8 tmpRFIE = RFIE;
-
-	RFIE = 0;										// disable radio ints during communication
-	RADIO_CS = 0;									// select radio SPI bus
+    chSysDisable();
+	spiSelect(&SPID1);									// select radio SPI bus
 #endif
-	spiPut((((UINT8)(address>>3))&0x7F)|0x80);
-	spiPut((((UINT8)(address<<5))&0xE0)|0x10);
+	spiPut((((uint8_t)(address>>3))&0x7F)|0x80);
+	spiPut((((uint8_t)(address<<5))&0xE0)|0x10);
 	spiPut(value);
 #ifndef SPI_INTERRUPTS
-	RADIO_CS = 1;									// de-select radio SPI bus
-	RFIE = tmpRFIE;									// restore interrupt state
+	spiUnselect(&SPID1);									// de-select radio SPI bus
+	chSysEnable();
 #endif
 }
 
 // reads byte from radio at short "address"
-UINT8 lowRead(UINT8 address)
+uint8_t lowRead(uint8_t address)
 {
-	UINT8 toReturn;
+	uint8_t toReturn;
 
 #ifndef SPI_INTERRUPTS
-	UINT8 tmpRFIE = RFIE;
-
-	RFIE = 0;										// disable radio ints during communication
-	RADIO_CS = 0;									// select radio SPI bus
+	chSysDisable();
+	spiSelect(&SPID1);									// select radio SPI bus
 #endif
 	spiPut(address);
 	toReturn = spiGet();
 #ifndef SPI_INTERRUPTS
-	RADIO_CS = 1;									// de-select radio SPI bus
-	RFIE = tmpRFIE;									// restore interrupt state
+	spiUnselect(&SPID1);									// de-select radio SPI bus
+	chSysEnable();
 #endif
 	return toReturn;
 }
 
 // writes "value" to radio at short "address"
-void lowWrite(UINT8 address, UINT8 value)
+void lowWrite(uint8_t address, uint8_t value)
 {
 #ifndef SPI_INTERRUPTS
-	UINT8 tmpRFIE = RFIE;
-
-	RFIE = 0;
-	RADIO_CS = 0;
+    chSysDisable();
+	spiSelect(&SPID1);
 #endif
 	spiPut(address);
 	spiPut(value);
 #ifndef SPI_INTERRUPTS
-	RADIO_CS = 1;
-	RFIE = tmpRFIE;
+	spiUnselect(&SPID1);
+	chSysEnable();
 #endif
 }
 
 // writes count consecutive bytes from source into consecutive FIFO slots starting at "register".  Returns next empty register #.
-UINT8 toTXfifo(UINT16 reg, UINT8* source, UINT8 count)
+uint8_t toTXfifo(uint16_t reg, uint8_t* source, uint8_t count)
 {
 	while(count--)
 		highWrite(reg++,*source++);
@@ -199,10 +189,10 @@ UINT8 toTXfifo(UINT16 reg, UINT8* source, UINT8 count)
 
 // warm start radio hardware, tunes to Channel.  Takes about 0.37 ms on PIC32 at 20 MHz, 10 MHz SPI hardware clock
 // on return, 0=no radio hardare, 1=radio is reset
-UINT8 initMRF24J40(void)
+uint8_t initMRF24J40(void)
 {
-	UINT8 i;
-	UINT32 radioReset = ReadCoreTimer();	// record time we started the reset procedure
+	uint8_t i;
+	uint32_t radioReset = chTimeNow();	// record time we started the reset procedure
 
 	RadioStatus.ResetCount++;
 
@@ -220,7 +210,7 @@ UINT8 initMRF24J40(void)
 		if (CT_TICKS_SINCE(radioReset) > MS_TO_CORE_TICKS(50))		// if no reset in a reasonable time
 			return 0;												// then there is no radio hardware
 	}
-	while((i&0x07) != (UINT8)0x00);   	// wait for hardware to clear reset bits
+	while((i&0x07) != (uint8_t)0x00);   	// wait for hardware to clear reset bits
 
 	lowWrite(WRITE_RXFLUSH,0x01);		// flush the RX fifo, leave WAKE pin disabled
 
@@ -272,9 +262,9 @@ UINT8 initMRF24J40(void)
 }
 
 // on return, 1=radio is setup, 0=there is no radio
-BOOL RadioInit(void)					// cold start radio init
+char RadioInit(void)					// cold start radio init
 {
-	BOOL radio;
+	char radio;
 
 	memset((void*)&RadioStatus, 0, sizeof(RadioStatus));
 
@@ -286,15 +276,43 @@ BOOL RadioInit(void)					// cold start radio init
 
 	radio = initMRF24J40();				// init radio hardware, tune to RadioStatus.Channel
 
-	RFIE = 1;							// enable radio interrupts
+	static const EXTConfig extcfg = {
+	  {
+	    {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA, extcb1},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL},
+	    {EXT_CH_MODE_DISABLED, NULL}
+	  }
+	};
+	extStart(&EXTD1, &extcfg);
+	//RFIE = 1;							// enable radio interrupts
 
 	return radio;
 }
 
 // set short address and PANID
-void RadioSetAddress(UINT16 shortAddress, UINT64 longAddress, UINT16 panID)
+void RadioSetAddress(uint16_t shortAddress, uint64_t longAddress, uint16_t panID)
 {
-	UINT8 i;
+	uint8_t i;
 
 	lowWrite(WRITE_SADRL,BYTEPTR(shortAddress)[0]);
 	lowWrite(WRITE_SADRH,BYTEPTR(shortAddress)[1]);
@@ -311,7 +329,7 @@ void RadioSetAddress(UINT16 shortAddress, UINT64 longAddress, UINT16 panID)
 }
 
 // Set radio channel.  Returns with success/fail flag.
-BOOL RadioSetChannel(UINT8 channel)
+char RadioSetChannel(uint8_t channel)
 {
 	if( channel < 11 || channel > 26)
 		return FALSE;
@@ -335,7 +353,7 @@ BOOL RadioSetChannel(UINT8 channel)
 //	TX: 	65.8 mA (as fast as I can xmit; nominal peak 130 mA)
 //	Sleep:	0.245 mA (spec is 5 uA with 'sleep clock disabled'; setting register 0x211 to 0x01 doesn't seem to help)
 // Note that you can in practice turn the radio power off completely for short periods (with a MOSFET) and then do a warm start.
-void RadioSetSleep(UINT8 powerState)
+void RadioSetSleep(uint8_t powerState)
 {
 	if (powerState)
 	{
@@ -356,9 +374,9 @@ void RadioSetSleep(UINT8 powerState)
 }
 
 // Do a single (128 us) energy scan on current channel.  Return RSSI.
-UINT8 RadioEnergyDetect(void)
+uint8_t RadioEnergyDetect(void)
 {
-	UINT8 RSSIcheck;
+	uint8_t RSSIcheck;
 
 	#if defined(ENABLE_PA_LNA)
 		highWrite(TESTMODE, 0x08);          // Disable automatic switch on PA/LNA
@@ -399,7 +417,7 @@ UINT8 RadioEnergyDetect(void)
 // sends raw packet per already setup Tx structure.  No error checking here.
 void RadioTXRaw(void)
 {
-	UINT8 wReg;													// radio write register (into TX FIFO starting at long addr 0)
+	uint8_t wReg;													// radio write register (into TX FIFO starting at long addr 0)
 
 	wReg = toTXfifo(2,BYTEPTR(Tx)+1,2+1);						// frame control (2) + sequence number (1) 
 
@@ -438,7 +456,7 @@ void RadioTXRaw(void)
 	RadioStatus.TX_PENDING_ACK = Tx.ackRequest;
 
 	lowWrite(WRITE_TXNMTRIG, Tx.ackRequest << 2 | 1);			// kick off transmit with above parameters
-	RadioStatus.LastTXTriggerTick = ReadCoreTimer();			// record time (used to check for locked-up radio or PLL loss)
+	RadioStatus.LastTXTriggerTick = chTimeNow();			// record time (used to check for locked-up radio or PLL loss)
 }
 
 // Sends next packet from Tx.  Blocks for up to MRF24J40_TIMEOUT_TICKS if transmitter is
@@ -464,7 +482,7 @@ void RadioTXPacket(void)
 
 
 // returns status of last transmitted packet: TX_SUCCESS (1), TX_FAILED (2), or 0 = no result yet because TX busy
-UINT8 RadioTXResult(void)
+uint8_t RadioTXResult(void)
 {
 	if (RadioStatus.TX_BUSY)									// if TX not done yet
 		return TX_RESULT_BUSY;
@@ -473,7 +491,7 @@ UINT8 RadioTXResult(void)
 }
 
 // returns TX_RESULT_SUCCESS or TX_RESULT_FAILED.  Waits up to MRF24J40_TIMEOUT_TICKS.
-UINT8 RadioWaitTXResult(void)
+uint8_t RadioWaitTXResult(void)
 {
 	while(RadioStatus.TX_BUSY)									// If TX is busy, wait for it to clear (for a resaonable time)
 		if ( CT_TICKS_SINCE(RadioStatus.LastTXTriggerTick) > MRF24J40_TIMEOUT_TICKS )		// if not ready in a resonable time
@@ -500,12 +518,12 @@ UINT8 RadioWaitTXResult(void)
 // Note this gives you ALL received packets (not just ones addressed to you).   Check the addressing yourself if you care.
 // Also be aware that sucessive identical packets (same frame number) will be received if the far-end misses your ACK (it
 // will re-transmit).  Check for that if you care.
-UINT8 RadioRXPacket(void)
+uint8_t RadioRXPacket(void)
 {
 	if (!RadioStatus.RXPacketCount)
 		return 0;														// no packets to process
 
-	UINT8* readPoint = (UINT8*)RXBuffer[RadioStatus.RXReadBuffer];		// recieved packet read point
+	uint8_t* readPoint = (uint8_t*)RXBuffer[RadioStatus.RXReadBuffer];		// recieved packet read point
 
 	if(RadioStatus.TX_BUSY)												// time out and reset radio if we missed interrupts for a long time
 		if ( CT_TICKS_SINCE(RadioStatus.LastTXTriggerTick) > MRF24J40_TIMEOUT_TICKS )
@@ -567,20 +585,22 @@ void RadioDiscardPacket(void)
 
 
 // Interrupt handler for the MRF24J40 and P2P stack (PIC32 only, no security)
-void __ISR(_EXTERNAL_4_VECTOR, ipl4) _INT4Interrupt(void)				// from INT pin on MRF24J40 radio
+static void extcb1(EXTDriver *extp, expchannel_t channel)				// from INT pin on MRF24J40 radio
 {
+    (void)extp;
+    (void)channel;
 	MRF24J40_IFREG iflags;
 
-	PUSH_DEBUG_STATE();
-	SET_DEBUG_STATE(CPU_BUSY);
+//	PUSH_DEBUG_STATE();
+//	SET_DEBUG_STATE(CPU_BUSY);
 
-	RFIF = 0;															// clear IF immediately to allow next interrupt
+	//RFIF = 0;															// clear IF immediately to allow next interrupt
 
 	iflags.Val = lowRead(READ_ISRSTS);									// read ISR to see what caused the interrupt
 
 	if(iflags.bits.RXIF)												// RX int?
 	{
-		UINT8 i, bytes;
+		uint8_t i, bytes;
 
 		lowWrite(WRITE_BBREG1, 0x04);									// set RXDECINV to disable hw RX while we're reading the FIFO
 
@@ -613,7 +633,7 @@ void __ISR(_EXTERNAL_4_VECTOR, ipl4) _INT4Interrupt(void)				// from INT pin on 
 
 		if(RadioStatus.TX_PENDING_ACK)									// if we were waiting for an ACK
 		{
-			UINT8 TXSTAT = lowRead(READ_TXSR);							// read TXSTAT, transmit status register
+			uint8_t TXSTAT = lowRead(READ_TXSR);							// read TXSTAT, transmit status register
 			RadioStatus.TX_FAIL    = TXSTAT & 1;						// read TXNSTAT (TX failure status)
 			RadioStatus.TX_RETRIES = TXSTAT >> 6;						// read TXNRETRY, number of retries of last sent packet (0..3)
 			RadioStatus.TX_CCAFAIL = TXSTAT & 0b00100000;				// read CCAFAIL
@@ -621,16 +641,15 @@ void __ISR(_EXTERNAL_4_VECTOR, ipl4) _INT4Interrupt(void)				// from INT pin on 
 			RadioStatus.TX_PENDING_ACK = 0;								// TX finished, clear that I am pending an ACK, already got it (if I was gonna get it)
 		}
 	}
-/*
-#ifdef SPI_INTERRUPTS
-		if (SPI2STATbits.SPITBE) 
-			INTSetFlag(INT_SPI2TX);			
-#endif
-*/
 
-	POP_DEBUG_STATE();
+//#ifdef SPI_INTERRUPTS
+//		if (SPI2STATbits.SPITBE)
+//			INTSetFlag(INT_SPI2TX);
+//#endif
+
+
+//	POP_DEBUG_STATE();
 }
-
 
 
 
