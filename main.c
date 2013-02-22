@@ -194,11 +194,17 @@ int main(void) {
   halInit();
   chSysInit();
 
+  static const SerialConfig serial_conf1_ = {
+      115200,
+      0,
+      USART_CR2_LINEN,
+      0
+  };
   /*
    * Activates the serial driver 1 using the driver default configuration.
    * PA9 and PA10 are routed to USART1.
    */
-  sdStart(&SD3, NULL);
+  sdStart(&SD3, &serial_conf1_);
 
   /*
    * If the user button is pressed after the reset then the test suite is
