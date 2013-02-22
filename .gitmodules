@@ -1,3 +1,0 @@
-[submodule "chibios"]
-	path = chibios
-	url = git://github.com/mabl/ChibiOS.git
