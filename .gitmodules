@@ -1,3 +1,4 @@
 [submodule "chibios"]
 	path = chibios
 	url = https://github.com/mabl/ChibiOS.git
+	ignore = dirty
