@@ -91,16 +91,24 @@ static PWMConfig pwmcfg = {
 };
 
 /*
- * SPI configuration structure.
- * Maximum speed (12MHz), CPHA=0, CPOL=0, 16bits frames, MSb transmitted first.
- * The slave select line is the pin GPIOA_SPI1NSS on the port GPIOA.
+ * Maximum speed SPI configuration (16MHz, CPHA=0, CPOL=0, MSb first).
  */
 static const SPIConfig spicfg = {
-  spicb,
-  /* HW dependent part.*/
+  NULL,
   GPIOB,
   12,
-  SPI_CR1_DFF
+  0
+};
+
+/**
+ *
+ * @param pwmp
+ */
+static const SerialConfig serialcfg = {
+    115200,
+    0,
+    USART_CR2_LINEN,
+    0
 };
 
 /*
@@ -182,7 +190,7 @@ static msg_t Thread1(void *arg) {
 /*
  * Application entry point.
  */
-int main(void) {
+int main2(void) {
 
   /*
    * System initializations.
@@ -216,13 +224,13 @@ int main(void) {
 
   /*
    * Initializes the SPI driver 2. The SPI2 signals are routed as follow:
-   * PB12 - NSS.
-   * PB13 - SCK.
-   * PB14 - MISO.
-   * PB15 - MOSI.
+   * PE12 - NSS.
+   * PE13 - SCK.
+   * PE14 - MISO.
+   * PE15 - MOSI.
    */
   spiStart(&SPID1, &spicfg);
-  palSetPad(GPIOB, 12);
+  palSetPad(GPIOE, 12);
 
   /*
    * Initializes the ADC driver 1 and enable the thermal sensor.
@@ -279,27 +287,27 @@ void RadioInitP2P(void)
     Tx.payload = txPayload;
 }
 
-int main2(void)
+int main(void)
 {
+    (void)spicb;
     static uint8_t lastFrameNumber;
     BaseSequentialStream* ptr = (BaseSequentialStream *) &SD3;
 
     halInit();
     chSysInit();
+    sdStart(&SD3, &serialcfg);
+    chprintf(ptr,"Hello, this is UART!\n");
+    TestThread(&SD3);
+    while(1){
+        chThdSleepMilliseconds(500);
+    }
+    spiStart(&SPID1, &spicfg);
+    chprintf(ptr,"spi started\n");
     RadioInit();            // cold start MRF24J40 radio
+    chprintf(ptr,"Radio initialized\n");
     RadioInitP2P();         // setup for simple peer-to-peer communication
-    /*
-     * Maximum speed SPI configuration (16MHz, CPHA=0, CPOL=0, MSb first).
-     */
-    static const SPIConfig hs_spicfg = {
-      NULL,
-      GPIOB,
-      12,
-      0
-    };
-    spiStart(&SPID1, &hs_spicfg);
     chprintf(ptr,"\nDemo for MRF24J40 running.\n");
-    chprintf(ptr,"Hit A, B, or C on to send a message.\n");
+
 
     while(1)                // main program loop
     {

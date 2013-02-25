@@ -116,13 +116,13 @@ uint8_t highRead(uint16_t address)
 
 #ifndef SPI_INTERRUPTS
 	chSysDisable();
-	spiSelect(&SPID1);
+	spiSelectI(&SPID1);
 #endif
 	spiPut(((address>>3)&0x7F)|0x80);
 	spiPut(((address<<5)&0xE0));
 	toReturn = spiGet();
 #ifndef SPI_INTERRUPTS
-	spiUnselect(&SPID1);
+	spiUnselectI(&SPID1);
 	chSysEnable();
 #endif
 
@@ -134,13 +134,13 @@ void highWrite(uint16_t address, uint8_t value)
 {
 #ifndef SPI_INTERRUPTS
     chSysDisable();
-	spiSelect(&SPID1);									// select radio SPI bus
+	spiSelectI(&SPID1);									// select radio SPI bus
 #endif
 	spiPut((((uint8_t)(address>>3))&0x7F)|0x80);
 	spiPut((((uint8_t)(address<<5))&0xE0)|0x10);
 	spiPut(value);
 #ifndef SPI_INTERRUPTS
-	spiUnselect(&SPID1);									// de-select radio SPI bus
+	spiUnselectI(&SPID1);									// de-select radio SPI bus
 	chSysEnable();
 #endif
 }
@@ -152,12 +152,12 @@ uint8_t lowRead(uint8_t address)
 
 #ifndef SPI_INTERRUPTS
 	chSysDisable();
-	spiSelect(&SPID1);									// select radio SPI bus
+	spiSelectI(&SPID1);									// select radio SPI bus
 #endif
 	spiPut(address);
 	toReturn = spiGet();
 #ifndef SPI_INTERRUPTS
-	spiUnselect(&SPID1);									// de-select radio SPI bus
+	spiUnselectI(&SPID1);									// de-select radio SPI bus
 	chSysEnable();
 #endif
 	return toReturn;
@@ -168,12 +168,12 @@ void lowWrite(uint8_t address, uint8_t value)
 {
 #ifndef SPI_INTERRUPTS
     chSysDisable();
-	spiSelect(&SPID1);
+	spiSelectI(&SPID1);
 #endif
 	spiPut(address);
 	spiPut(value);
 #ifndef SPI_INTERRUPTS
-	spiUnselect(&SPID1);
+	spiUnselectI(&SPID1);
 	chSysEnable();
 #endif
 }

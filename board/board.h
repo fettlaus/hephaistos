@@ -33,14 +33,13 @@
 
 /*
  * Board oscillators-related settings.
- * NOTE: HSE not fitted.
  */
 #if !defined(STM32_LSECLK)
 #define STM32_LSECLK                32768
 #endif
 
 #if !defined(STM32_HSECLK)
-#define STM32_HSECLK                0
+#define STM32_HSECLK                8000000
 #endif
 
 #define STM32_HSE_BYPASS
