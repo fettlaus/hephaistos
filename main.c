@@ -299,7 +299,8 @@ int main(void)
     chprintf(ptr,"Hello, this is UART!\n");
     TestThread(&SD3);
     while(1){
-        chThdSleepMilliseconds(500);
+        chprintf(ptr,"Hello, this is UART!\n");
+        chThdSleepMilliseconds(100);
     }
     spiStart(&SPID1, &spicfg);
     chprintf(ptr,"spi started\n");
