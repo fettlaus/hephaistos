@@ -1,28 +1,9 @@
-/*
-    ChibiOS/RT - Copyright (C) 2006,2007,2008,2009,2010,
-                 2011,2012 Giovanni Di Sirio.
-
-    This file is part of ChibiOS/RT.
-
-    ChibiOS/RT is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    ChibiOS/RT is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
 /*
- * Setup for ST STM32L-Discovery board.
+ * Setup for Olimex STM32-H152 board.
+ * author: Arne Wischer
  */
 
 /*
@@ -95,7 +76,7 @@
 #define GPIOC_PIN6                  6
 #define GPIOC_PIN7                  7
 #define GPIOC_PIN8                  8
-#define GPIOC_BUTTON                9
+#define GPIOC_PIN9                  9
 #define GPIOC_PIN10                 10
 #define GPIOC_PIN11                 11
 #define GPIOC_PIN12                 12
@@ -439,7 +420,7 @@
                                      PIN_MODE_INPUT(GPIOC_PIN6) |           \
                                      PIN_MODE_INPUT(GPIOC_PIN7) |           \
                                      PIN_MODE_INPUT(GPIOC_PIN8) |           \
-                                     PIN_MODE_INPUT(GPIOC_BUTTON) |           \
+                                     PIN_MODE_INPUT(GPIOC_PIN9) |           \
                                      PIN_MODE_INPUT(GPIOC_PIN10) |          \
                                      PIN_MODE_INPUT(GPIOC_PIN11) |          \
                                      PIN_MODE_INPUT(GPIOC_PIN12) |          \
@@ -455,7 +436,7 @@
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN6) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN7) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN8) |       \
-                                     PIN_OTYPE_PUSHPULL(GPIOC_BUTTON) |       \
+                                     PIN_OTYPE_PUSHPULL(GPIOC_PIN9) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN10) |      \
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN11) |      \
                                      PIN_OTYPE_PUSHPULL(GPIOC_PIN12) |      \
@@ -471,7 +452,7 @@
                                      PIN_OSPEED_400K(GPIOC_PIN6) |          \
                                      PIN_OSPEED_400K(GPIOC_PIN7) |          \
                                      PIN_OSPEED_400K(GPIOC_PIN8) |          \
-                                     PIN_OSPEED_400K(GPIOC_BUTTON) |          \
+                                     PIN_OSPEED_400K(GPIOC_PIN9) |          \
                                      PIN_OSPEED_400K(GPIOC_PIN10) |         \
                                      PIN_OSPEED_400K(GPIOC_PIN11) |         \
                                      PIN_OSPEED_400K(GPIOC_PIN12) |         \
@@ -487,7 +468,7 @@
                                      PIN_PUPDR_PULLUP(GPIOC_PIN6) |         \
                                      PIN_PUPDR_PULLUP(GPIOC_PIN7) |         \
                                      PIN_PUPDR_PULLUP(GPIOC_PIN8) |         \
-                                     PIN_PUPDR_PULLUP(GPIOC_BUTTON) |         \
+                                     PIN_PUPDR_PULLUP(GPIOC_PIN9) |         \
                                      PIN_PUPDR_PULLUP(GPIOC_PIN10) |        \
                                      PIN_PUPDR_PULLUP(GPIOC_PIN11) |        \
                                      PIN_PUPDR_PULLUP(GPIOC_PIN12) |        \
@@ -503,7 +484,7 @@
                                      PIN_ODR_HIGH(GPIOC_PIN6) |             \
                                      PIN_ODR_HIGH(GPIOC_PIN7) |             \
                                      PIN_ODR_HIGH(GPIOC_PIN8) |             \
-                                     PIN_ODR_LOW(GPIOC_BUTTON) |             \
+                                     PIN_ODR_LOW(GPIOC_PIN9) |             \
                                      PIN_ODR_HIGH(GPIOC_PIN10) |            \
                                      PIN_ODR_HIGH(GPIOC_PIN11) |            \
                                      PIN_ODR_HIGH(GPIOC_PIN12) |            \
@@ -519,7 +500,7 @@
                                      PIN_AFIO_AF(GPIOC_PIN6, 0) |           \
                                      PIN_AFIO_AF(GPIOC_PIN7, 0))
 #define VAL_GPIOC_AFRH              (PIN_AFIO_AF(GPIOC_PIN8, 0) |           \
-                                     PIN_AFIO_AF(GPIOC_BUTTON, 0) |           \
+                                     PIN_AFIO_AF(GPIOC_PIN9, 0) |           \
                                      PIN_AFIO_AF(GPIOC_PIN10, 0) |          \
                                      PIN_AFIO_AF(GPIOC_PIN11, 0) |          \
                                      PIN_AFIO_AF(GPIOC_PIN12, 0) |          \

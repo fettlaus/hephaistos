@@ -55,12 +55,11 @@ endif
 #
 
 # Define project name here
-PROJECT = ch
+PROJECT = chibios
 
 # Imported source files and paths
 CHIBIOS = chibios
 include board/board.mk
-include hephaistos.mk
 include $(CHIBIOS)/os/hal/platforms/STM32L1xx/platform.mk
 include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32L1xx/port.mk
