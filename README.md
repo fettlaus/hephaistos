@@ -1,4 +1,0 @@
-HephaistOS
-==========
-
-HephaistOS
